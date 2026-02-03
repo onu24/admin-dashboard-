@@ -1,0 +1,272 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================================================
+    // AUTHENTICATION & AUTHORIZATION HELPERS
+    // ============================================================================
+    
+    /**
+     * Check if user is authenticated
+     */
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    /**
+     * Get user document from Firestore
+     * Returns null if user document doesn't exist
+     */
+    function getUserData() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data
+        : null;
+    }
+    
+    /**
+     * Check if authenticated user has admin role
+     */
+    function isAdmin() {
+      return isAuthenticated() && getUserData() != null && getUserData().role == 'admin';
+    }
+    
+    /**
+     * Check if authenticated user is a regular user (not admin, not technician)
+     */
+    function isUser() {
+      return isAuthenticated() 
+        && getUserData() != null 
+        && getUserData().role != 'admin'
+        && (getUserData().technicianId == null || getUserData().technicianId == '');
+    }
+    
+    /**
+     * Check if authenticated user is a technician
+     * Can be identified by technicianId in user document or direct technicianId match
+     */
+    function isTechnician() {
+      return isAuthenticated() && (
+        getUserData() != null && getUserData().technicianId != null && getUserData().technicianId != ''
+        || exists(/databases/$(database)/documents/technicians/$(request.auth.uid))
+      );
+    }
+    
+    /**
+     * Get technician ID for authenticated user
+     */
+    function getTechnicianId() {
+      let userData = getUserData();
+      if (userData != null && userData.technicianId != null) {
+        return userData.technicianId;
+      }
+      if (exists(/databases/$(database)/documents/technicians/$(request.auth.uid))) {
+        return request.auth.uid;
+      }
+      return null;
+    }
+    
+    // ============================================================================
+    // FIELD VALIDATION HELPERS
+    // ============================================================================
+    
+    /**
+     * Check if request doesn't include role field
+     */
+    function noRoleField() {
+      return !('role' in request.resource.data);
+    }
+    
+    /**
+     * Check if role field hasn't changed
+     */
+    function roleUnchanged() {
+      return (!('role' in request.resource.data) && !('role' in resource.data))
+        || (request.resource.data.role == resource.data.role);
+    }
+    
+    /**
+     * Check if only allowed fields are being updated (for technicians)
+     * Only availability and location can be changed
+     */
+    function canUpdateTechnicianFields() {
+      return (!('name' in request.resource.data) || request.resource.data.name == resource.data.name)
+        && (!('phone' in request.resource.data) || request.resource.data.phone == resource.data.phone)
+        && (!('email' in request.resource.data) || request.resource.data.email == resource.data.email)
+        && (!('skills' in request.resource.data) || request.resource.data.skills == resource.data.skills)
+        && (!('active' in request.resource.data) || request.resource.data.active == resource.data.active)
+        && (!('verified' in request.resource.data) || request.resource.data.verified == resource.data.verified)
+        && (!('userId' in request.resource.data) || request.resource.data.userId == resource.data.userId)
+        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+    }
+    
+    /**
+     * Check if only status field is being updated in booking
+     */
+    function onlyStatusChanged() {
+      return (!('serviceId' in request.resource.data) || request.resource.data.serviceId == resource.data.serviceId)
+        && (!('technicianId' in request.resource.data) || request.resource.data.technicianId == resource.data.technicianId)
+        && (!('customerName' in request.resource.data) || request.resource.data.customerName == resource.data.customerName)
+        && (!('customerPhone' in request.resource.data) || request.resource.data.customerPhone == resource.data.customerPhone)
+        && (!('customerAddress' in request.resource.data) || request.resource.data.customerAddress == resource.data.customerAddress)
+        && (!('scheduledAt' in request.resource.data) || request.resource.data.scheduledAt == resource.data.scheduledAt)
+        && (!('createdAt' in request.resource.data) || request.resource.data.createdAt == resource.data.createdAt);
+    }
+    
+    /**
+     * Validate status transition for bookings (assigned → completed)
+     */
+    function isValidStatusTransition() {
+      if (!('status' in request.resource.data) || !('status' in resource.data)) {
+        return true;
+      }
+      // Allow transition from assigned to completed, or keep same status
+      return (resource.data.status == 'assigned' && request.resource.data.status == 'completed')
+        || request.resource.data.status == resource.data.status;
+    }
+    
+    // ============================================================================
+    // OWNERSHIP CHECK HELPERS
+    // ============================================================================
+    
+    /**
+     * Check if user is accessing their own user document
+     */
+    function isOwnUser(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    /**
+     * Check if technician document belongs to authenticated user
+     */
+    function isOwnTechnician(technicianId) {
+      return isAuthenticated() && (
+        request.auth.uid == technicianId
+        || (resource.data.userId != null && resource.data.userId == request.auth.uid)
+        || getTechnicianId() == technicianId
+      );
+    }
+    
+    /**
+     * Check if booking belongs to authenticated user
+     */
+    function isOwnBooking() {
+      return isAuthenticated() && (
+        resource.data.userId == request.auth.uid
+        || resource.data.customerId == request.auth.uid
+      );
+    }
+    
+    /**
+     * Check if booking is assigned to authenticated technician
+     */
+    function isAssignedToTechnician() {
+      let techId = getTechnicianId();
+      return isAuthenticated() 
+        && resource.data.technicianId != null
+        && techId != null
+        && resource.data.technicianId == techId;
+    }
+    
+    /**
+     * Check if user is creating their own booking
+     * Must set their own userId/customerId and cannot assign technicianId
+     */
+    function isCreatingOwnBooking() {
+      return isAuthenticated()
+        && (!('technicianId' in request.resource.data) || request.resource.data.technicianId == null)
+        && ((request.resource.data.userId == request.auth.uid)
+            || (request.resource.data.customerId == request.auth.uid));
+    }
+    
+    // ============================================================================
+    // COLLECTION RULES
+    // ============================================================================
+    
+    // ----------------------------------------------------------------------------
+    // Users Collection
+    // ----------------------------------------------------------------------------
+    match /users/{userId} {
+      // Admin: Full read/write access to all users
+      allow read, write: if isAdmin();
+      
+      // User: Can read their own document
+      allow read: if isOwnUser(userId);
+      
+      // User: Can create their own document (without role field)
+      allow create: if isOwnUser(userId) && noRoleField();
+      
+      // User: Can update their own document (cannot add or change role)
+      allow update: if isOwnUser(userId) && roleUnchanged();
+      
+      // Default: Deny all other operations
+      allow delete: if false;
+    }
+    
+    // ----------------------------------------------------------------------------
+    // Services Collection
+    // ----------------------------------------------------------------------------
+    match /services/{serviceId} {
+      // Admin: Full control (create, read, update, delete)
+      allow create, update, delete: if isAdmin();
+      allow read: if isAdmin();
+      
+      // Authenticated users (including technicians): Can read active services only
+      allow read: if isAuthenticated() && resource.data.isActive == true;
+      
+      // Default: Deny all other operations (no public write access)
+      allow create, update, delete: if false;
+    }
+    
+    // ----------------------------------------------------------------------------
+    // Technicians Collection
+    // ----------------------------------------------------------------------------
+    match /technicians/{technicianId} {
+      // Admin: Full read/write access to all technicians
+      allow read, write: if isAdmin();
+      
+      // Technician: Can read their own document
+      allow read: if isOwnTechnician(technicianId);
+      
+      // Technician: Can update only availability and location fields
+      allow update: if isOwnTechnician(technicianId) && canUpdateTechnicianFields();
+      
+      // Default: Deny all other operations (no public write access)
+      allow create, delete: if false;
+    }
+    
+    // ----------------------------------------------------------------------------
+    // Bookings Collection
+    // ----------------------------------------------------------------------------
+    match /bookings/{bookingId} {
+      // Admin: Full read/write access to all bookings
+      allow read, write: if isAdmin();
+      
+      // User: Can read their own bookings
+      allow read: if isOwnBooking();
+      
+      // User: Can create their own booking (cannot assign technicianId)
+      allow create: if isCreatingOwnBooking();
+      
+      // Technician: Can read bookings assigned to them
+      allow read: if isAssignedToTechnician();
+      
+      // Technician: Can update booking status only (assigned → completed)
+      allow update: if isAssignedToTechnician() 
+        && onlyStatusChanged() 
+        && isValidStatusTransition();
+      
+      // Default: Deny all other operations (no public write access)
+      allow delete: if false;
+    }
+    
+    // ============================================================================
+    // DEFAULT DENY RULE
+    // ============================================================================
+    
+    // Deny access to all other collections and documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
