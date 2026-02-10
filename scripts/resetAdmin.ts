@@ -5,7 +5,7 @@ config({ path: resolve(process.cwd(), ".env.local") });
 
 import * as admin from "firebase-admin";
 import { existsSync } from "fs";
-import { resolve } from "path";
+
 
 // Initialize Firebase Admin SDK
 let auth: admin.auth.Auth;
@@ -15,7 +15,7 @@ try {
   if (!admin.apps.length) {
     // Try to use service account key file if it exists
     const serviceAccountPath = resolve(process.cwd(), "serviceAccountKey.json");
-    
+
     if (existsSync(serviceAccountPath)) {
       const serviceAccount = require(serviceAccountPath);
       admin.initializeApp({
@@ -34,7 +34,7 @@ try {
       });
     }
   }
-  
+
   auth = admin.auth();
   db = admin.firestore();
 } catch (error: any) {
@@ -83,17 +83,17 @@ async function resetAdmin(email?: string, password?: string) {
     try {
       do {
         const listUsersResult = await auth.listUsers(1000, nextPageToken);
-      
-      // Delete users in batches
-      const deletePromises = listUsersResult.users.map(async (userRecord) => {
-        try {
-          await auth.deleteUser(userRecord.uid);
-          console.log(`  ✓ Deleted user: ${userRecord.email || userRecord.uid}`);
-          deletedCount++;
-        } catch (error: any) {
-          console.error(`  ✗ Failed to delete user ${userRecord.uid}: ${error.message}`);
-        }
-      });
+
+        // Delete users in batches
+        const deletePromises = listUsersResult.users.map(async (userRecord) => {
+          try {
+            await auth.deleteUser(userRecord.uid);
+            console.log(`  ✓ Deleted user: ${userRecord.email || userRecord.uid}`);
+            deletedCount++;
+          } catch (error: any) {
+            console.error(`  ✗ Failed to delete user ${userRecord.uid}: ${error.message}`);
+          }
+        });
 
         await Promise.all(deletePromises);
         nextPageToken = listUsersResult.pageToken;
@@ -162,11 +162,11 @@ async function resetAdmin(email?: string, password?: string) {
     process.exit(0);
   } catch (error: any) {
     console.error("❌ Error resetting admin:", error);
-    
+
     if (error.code === "auth/email-already-in-use") {
       console.error("\n⚠️  User with this email already exists (this shouldn't happen after deletion).");
     }
-    
+
     process.exit(1);
   }
 }
