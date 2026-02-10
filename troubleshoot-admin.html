@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login Troubleshooter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #1a202c;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        h2 {
+            color: #2d3748;
+            margin: 25px 0 15px 0;
+            font-size: 20px;
+        }
+
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .step {
+            background: #f7fafc;
+            border-left: 4px solid #4299e1;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .step h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .credentials {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .credentials p {
+            margin: 5px 0;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px 28px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 10px 10px 10px 0;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            display: none;
+        }
+
+        .success {
+            background: #c6f6d5;
+            border-left: 4px solid #38a169;
+            color: #22543d;
+        }
+
+        .error {
+            background: #fed7d7;
+            border-left: 4px solid #e53e3e;
+            color: #742a2a;
+        }
+
+        .loading {
+            background: #bee3f8;
+            border-left: 4px solid #3182ce;
+            color: #2c5282;
+        }
+
+        .info {
+            background: #fef5e7;
+            border-left: 4px solid #f39c12;
+            color: #7d6608;
+        }
+
+        .code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+
+        .user-list {
+            background: #f7fafc;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .user-item {
+            background: white;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="card">
+            <h1>🔧 Admin Login Troubleshooter</h1>
+            <p class="subtitle">Diagnose and fix your admin login issues</p>
+
+            <div class="step">
+                <h3>Step 1: Check Existing Users</h3>
+                <p>First, let's see if any users exist in Firebase Authentication.</p>
+                <button onclick="checkUsers()">Check Existing Users</button>
+                <div id="userStatus"></div>
+            </div>
+
+            <div class="step">
+                <h3>Step 2: Create Admin User</h3>
+                <p>Create a new admin user with default credentials.</p>
+                <div class="credentials">
+                    <p><strong>Email:</strong> admin@admin.com</p>
+                    <p><strong>Password:</strong> Admin@123456</p>
+                </div>
+                <button class="btn-success" onclick="createAdmin()">Create Admin User</button>
+                <div id="createStatus"></div>
+            </div>
+
+            <div class="step">
+                <h3>Step 3: Test Login</h3>
+                <p>Test if you can login with the credentials.</p>
+                <button onclick="testLogin()">Test Login</button>
+                <div id="loginStatus"></div>
+            </div>
+
+            <div class="step">
+                <h3>Step 4: Delete All Users (Reset)</h3>
+                <p style="color: #e53e3e; margin-bottom: 10px;"><strong>⚠️ Warning:</strong> This will delete ALL users
+                    from Firebase Auth. Use only if you want to start fresh.</p>
+                <button class="btn-danger" onclick="deleteAllUsers()">Delete All Users & Start Fresh</button>
+                <div id="deleteStatus"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, deleteUser, signOut } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, doc, setDoc, collection, getDocs, deleteDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDh_Mc7ySjYBErcU9bfrTnIgQ_mrHdWZac",
+            authDomain: "admin-904d8.firebaseapp.com",
+            projectId: "admin-904d8",
+            storageBucket: "admin-904d8.firebasestorage.app",
+            messagingSenderId: "681702729140",
+            appId: "1:681702729140:web:5ef1bdd25ca25199f1bee1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const email = 'admin@admin.com';
+        const password = 'Admin@123456';
+
+        window.checkUsers = async function () {
+            const status = document.getElementById('userStatus');
+            status.style.display = 'block';
+            status.className = 'loading';
+            status.innerHTML = '⏳ Checking users...';
+
+            try {
+                // Note: Client SDK cannot list all users, only Admin SDK can
+                // We'll check Firestore instead
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+
+                if (usersSnapshot.empty) {
+                    status.className = 'info';
+                    status.innerHTML = `
+                        <strong>ℹ️ No Users Found</strong><br><br>
+                        No user documents found in Firestore.<br>
+                        This means you need to create an admin user.
+                    `;
+                } else {
+                    let userList = '<div class="user-list">';
+                    usersSnapshot.forEach(doc => {
+                        const data = doc.data();
+                        userList += `
+                            <div class="user-item">
+                                <strong>UID:</strong> ${doc.id}<br>
+                                <strong>Email:</strong> ${data.email || 'N/A'}<br>
+                                <strong>Role:</strong> ${data.role || 'N/A'}
+                            </div>
+                        `;
+                    });
+                    userList += '</div>';
+
+                    status.className = 'success';
+                    status.innerHTML = `
+                        <strong>✅ Found ${usersSnapshot.size} user(s) in Firestore:</strong><br>
+                        ${userList}
+                        <br>
+                        <strong>Note:</strong> If you can't login, the password might be different or the user might not exist in Firebase Authentication.
+                    `;
+                }
+            } catch (error) {
+                status.className = 'error';
+                status.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+            }
+        };
+
+        window.createAdmin = async function () {
+            const status = document.getElementById('createStatus');
+            status.style.display = 'block';
+            status.className = 'loading';
+            status.innerHTML = '⏳ Creating admin user...';
+
+            try {
+                // Create user in Firebase Auth
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Create Firestore document
+                await setDoc(doc(db, 'users', user.uid), {
+                    role: 'admin',
+                    email: email,
+                    createdAt: new Date()
+                });
+
+                status.className = 'success';
+                status.innerHTML = `
+                    <strong>✅ Success!</strong><br><br>
+                    Admin user created successfully!<br><br>
+                    <strong>Credentials:</strong><br>
+                    Email: <span class="code">${email}</span><br>
+                    Password: <span class="code">${password}</span><br>
+                    UID: <span class="code">${user.uid}</span><br><br>
+                    <strong>✅ You can now login to your dashboard!</strong>
+                `;
+
+                // Sign out after creation
+                await signOut(auth);
+
+            } catch (error) {
+                if (error.code === 'auth/email-already-in-use') {
+                    status.className = 'info';
+                    status.innerHTML = `
+                        <strong>ℹ️ User Already Exists</strong><br><br>
+                        A user with email <span class="code">${email}</span> already exists.<br><br>
+                        Try logging in with password: <span class="code">${password}</span><br><br>
+                        If that doesn't work, delete all users and create fresh.
+                    `;
+                } else {
+                    status.className = 'error';
+                    status.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+                }
+            }
+        };
+
+        window.testLogin = async function () {
+            const status = document.getElementById('loginStatus');
+            status.style.display = 'block';
+            status.className = 'loading';
+            status.innerHTML = '⏳ Testing login...';
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Check Firestore document
+                const userDocRef = doc(db, 'users', user.uid);
+                const userDocSnap = await getDocs(collection(db, 'users'));
+
+                status.className = 'success';
+                status.innerHTML = `
+                    <strong>✅ Login Successful!</strong><br><br>
+                    You can login with these credentials:<br>
+                    Email: <span class="code">${email}</span><br>
+                    Password: <span class="code">${password}</span><br>
+                    UID: <span class="code">${user.uid}</span><br><br>
+                    <strong>🎉 Your admin dashboard should work now!</strong>
+                `;
+
+                await signOut(auth);
+
+            } catch (error) {
+                status.className = 'error';
+                status.innerHTML = `
+                    <strong>❌ Login Failed</strong><br><br>
+                    Error: ${error.message}<br>
+                    Code: <span class="code">${error.code}</span><br><br>
+                    This means the credentials don't exist or are incorrect.<br>
+                    Try creating a new admin user above.
+                `;
+            }
+        };
+
+        window.deleteAllUsers = async function () {
+            if (!confirm('⚠️ Are you sure? This will delete ALL users from Firestore. You cannot undo this!')) {
+                return;
+            }
+
+            const status = document.getElementById('deleteStatus');
+            status.style.display = 'block';
+            status.className = 'loading';
+            status.innerHTML = '⏳ Deleting all users from Firestore...';
+
+            try {
+                const usersSnapshot = await getDocs(collection(db, 'users'));
+                let count = 0;
+
+                for (const docSnap of usersSnapshot.docs) {
+                    await deleteDoc(doc(db, 'users', docSnap.id));
+                    count++;
+                }
+
+                status.className = 'success';
+                status.innerHTML = `
+                    <strong>✅ Deleted ${count} user(s) from Firestore</strong><br><br>
+                    <strong>⚠️ Important:</strong> Users still exist in Firebase Authentication.<br>
+                    You need to manually delete them from Firebase Console → Authentication.<br><br>
+                    After deleting from Firebase Console, click "Create Admin User" above.
+                `;
+
+            } catch (error) {
+                status.className = 'error';
+                status.innerHTML = `<strong>❌ Error:</strong> ${error.message}`;
+            }
+        };
+    </script>
+</body>
+
+</html>

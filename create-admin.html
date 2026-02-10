@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Admin User</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 500px;
+            width: 100%;
+        }
+        h1 {
+            color: #1a202c;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #f7fafc;
+            border-left: 4px solid #4299e1;
+            padding: 15px;
+            margin-bottom: 25px;
+            border-radius: 4px;
+        }
+        .info-box p {
+            color: #2d3748;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .credentials {
+            background: #edf2f7;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 25px;
+        }
+        .credentials p {
+            color: #2d3748;
+            font-size: 14px;
+            margin: 5px 0;
+            font-family: 'Courier New', monospace;
+        }
+        .credentials strong {
+            color: #1a202c;
+        }
+        button {
+            width: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        #status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            line-height: 1.6;
+            display: none;
+        }
+        .success {
+            background: #c6f6d5;
+            border-left: 4px solid #38a169;
+            color: #22543d;
+        }
+        .error {
+            background: #fed7d7;
+            border-left: 4px solid #e53e3e;
+            color: #742a2a;
+        }
+        .loading {
+            background: #bee3f8;
+            border-left: 4px solid #3182ce;
+            color: #2c5282;
+        }
+        .code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Create Admin User</h1>
+        <p class="subtitle">Set up your admin credentials for the dashboard</p>
+
+        <div class="info-box">
+            <p><strong>What this does:</strong></p>
+            <p>Creates a new admin user in Firebase Authentication and Firestore with the credentials shown below.</p>
+        </div>
+
+        <div class="credentials">
+            <p><strong>Email:</strong> admin@admin.com</p>
+            <p><strong>Password:</strong> Admin@123456</p>
+        </div>
+
+        <button id="createBtn" onclick="createAdmin()">Create Admin User</button>
+
+        <div id="status"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
+        import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyDh_Mc7ySjYBErcU9bfrTnIgQ_mrHdWZac",
+            authDomain: "admin-904d8.firebaseapp.com",
+            projectId: "admin-904d8",
+            storageBucket: "admin-904d8.firebasestorage.app",
+            messagingSenderId: "681702729140",
+            appId: "1:681702729140:web:5ef1bdd25ca25199f1bee1"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.createAdmin = async function() {
+            const btn = document.getElementById('createBtn');
+            const status = document.getElementById('status');
+            
+            btn.disabled = true;
+            status.style.display = 'block';
+            status.className = 'loading';
+            status.innerHTML = '⏳ Creating admin user...';
+
+            const email = 'admin@admin.com';
+            const password = 'Admin@123456';
+
+            try {
+                // Step 1: Create user in Firebase Auth
+                status.innerHTML = '⏳ Step 1/2: Creating Firebase Authentication user...';
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                // Step 2: Create Firestore document
+                status.innerHTML = '⏳ Step 2/2: Creating Firestore document...';
+                await setDoc(doc(db, 'users', user.uid), {
+                    role: 'admin',
+                    email: email,
+                    createdAt: new Date()
+                });
+
+                // Success!
+                status.className = 'success';
+                status.innerHTML = `
+                    <strong>✅ Success!</strong><br><br>
+                    Admin user created successfully!<br><br>
+                    <strong>Login Credentials:</strong><br>
+                    Email: <span class="code">${email}</span><br>
+                    Password: <span class="code">${password}</span><br>
+                    UID: <span class="code">${user.uid}</span><br><br>
+                    You can now close this page and login to your admin dashboard!
+                `;
+                btn.textContent = '✅ Admin Created!';
+
+            } catch (error) {
+                console.error('Error:', error);
+                
+                if (error.code === 'auth/email-already-in-use') {
+                    status.className = 'success';
+                    status.innerHTML = `
+                        <strong>ℹ️ User Already Exists!</strong><br><br>
+                        An admin user with this email already exists.<br><br>
+                        <strong>Login Credentials:</strong><br>
+                        Email: <span class="code">${email}</span><br>
+                        Password: <span class="code">${password}</span><br><br>
+                        If you can't login, the password might be different. Delete the user from Firebase Console and try again.
+                    `;
+                    btn.textContent = 'User Already Exists';
+                } else if (error.code === 'permission-denied') {
+                    status.className = 'error';
+                    status.innerHTML = `
+                        <strong>⚠️ Partial Success</strong><br><br>
+                        User created in Firebase Auth, but Firestore document creation failed due to security rules.<br><br>
+                        <strong>Manual step required:</strong><br>
+                        1. Go to Firebase Console → Firestore<br>
+                        2. Create document in <span class="code">users</span> collection<br>
+                        3. Use the UID from Firebase Auth as document ID<br>
+                        4. Add fields: role="admin", email="${email}"
+                    `;
+                    btn.disabled = false;
+                    btn.textContent = 'Try Again';
+                } else {
+                    status.className = 'error';
+                    status.innerHTML = `
+                        <strong>❌ Error</strong><br><br>
+                        ${error.message}<br><br>
+                        Error code: <span class="code">${error.code}</span>
+                    `;
+                    btn.disabled = false;
+                    btn.textContent = 'Try Again';
+                }
+            }
+        };
+    </script>
+</body>
+</html>

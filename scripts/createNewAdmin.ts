@@ -3,11 +3,11 @@ import { config } from "dotenv";
 import { resolve } from "path";
 config({ path: resolve(process.cwd(), ".env.local") });
 
-async function createAdmin(email?: string, password?: string) {
+async function createNewAdmin(email?: string, password?: string) {
   try {
     // Get email and password from command line arguments or use defaults
-    const adminEmail = email || process.argv[2] || "admin@example.com";
-    const adminPassword = password || process.argv[3] || "admin123456";
+    const adminEmail = email || process.argv[2] || "admin@admin.com";
+    const adminPassword = password || process.argv[3] || "Admin@123456";
 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -22,15 +22,15 @@ async function createAdmin(email?: string, password?: string) {
       process.exit(1);
     }
 
+    console.log("🚀 Creating new admin user...\n");
+
     // Dynamically import Firebase after env vars are loaded
-    // Import the firebase module first to ensure initialization
-    const firebaseModule = await import("../lib/firebase");
-    const { createUserWithEmailAndPassword } = await import("firebase/auth");
-    const { doc, setDoc, getFirestore } = await import("firebase/firestore");
     const { getApps, initializeApp } = await import("firebase/app");
-    const { auth } = firebaseModule;
-    
-    // Ensure Firestore is properly initialized
+    const { getFirestore, doc, setDoc } = await import("firebase/firestore");
+    const { createUserWithEmailAndPassword } = await import("firebase/auth");
+    const { getAuth } = await import("firebase/auth");
+
+    // Initialize Firebase
     const apps = getApps();
     const app = apps.length > 0 ? apps[0] : initializeApp({
       apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -41,11 +41,11 @@ async function createAdmin(email?: string, password?: string) {
       appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
     });
     const db = getFirestore(app);
+    const auth = getAuth(app);
 
-    console.log("🚀 Creating admin user...\n");
-
-    // Create user in Firebase Authentication
+    // Create new admin user
     console.log(`📝 Creating user with email: ${adminEmail}`);
+    
     const userCredential = await createUserWithEmailAndPassword(
       auth,
       adminEmail,
@@ -54,11 +54,9 @@ async function createAdmin(email?: string, password?: string) {
     const user = userCredential.user;
     console.log(`  ✓ User created successfully (UID: ${user.uid})\n`);
 
-    // Create user document in Firestore
-    // Note: Firestore rules prevent setting role on create, so we'll create without role first
+    // Try to create user document in Firestore
     console.log(`📝 Creating user document in Firestore...`);
     try {
-      // Try to create with role (will fail due to security rules, but worth trying)
       await setDoc(doc(db, "users", user.uid), {
         role: "admin",
         email: adminEmail,
@@ -82,6 +80,7 @@ async function createAdmin(email?: string, password?: string) {
     console.log("\n📋 Login Credentials:");
     console.log(`   Email: ${adminEmail}`);
     console.log(`   Password: ${adminPassword}`);
+    console.log(`   UID: ${user.uid}`);
     console.log("\n⚠️  Please change the password after first login!");
 
     process.exit(0);
@@ -90,9 +89,12 @@ async function createAdmin(email?: string, password?: string) {
     
     if (error.code === "auth/email-already-in-use") {
       console.error("\n⚠️  User with this email already exists.");
-      console.error("   If you want to update the role, you can manually:");
-      console.error("   1. Get the user UID from Firebase Console");
-      console.error("   2. Create/update document at users/{uid} with role: 'admin'");
+      console.error("   Please delete it first from Firebase Console → Authentication");
+      console.error("   Or use a different email address.");
+    } else if (error.code === "auth/network-request-failed") {
+      console.error("\n⚠️  Network error. Please check your internet connection.");
+    } else if (error.message) {
+      console.error(`\n⚠️  ${error.message}`);
     }
     
     process.exit(1);
@@ -100,7 +102,7 @@ async function createAdmin(email?: string, password?: string) {
 }
 
 // Run the script when executed directly
-createAdmin().catch((error) => {
+createNewAdmin().catch((error) => {
   console.error("❌ Unhandled error:", error);
   process.exit(1);
 });
